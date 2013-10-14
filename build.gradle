@@ -1,12 +1,87 @@
 apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+apply from: 'http://tellurianring.com/projects/gradle-plugins/gradle-release/apply.groovy'
 
 sourceCompatibility = 1.5
 
 repositories {
     mavenCentral()
+
+    maven { url "https://raw.github.com/synergian/wagon-git/releases"}
+}
+
+configurations {
+    deployerJar
 }
 
 dependencies {
+    deployerJar "ar.com.synergian:wagon-git:0.2.0"
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = "javadoc"
+    from 'build/docs/javadoc'
+}
+
+task sourcesJar(type: Jar) {
+    from sourceSets.main.allSource
+    classifier = "sources"
+}
+
+artifacts {
+    archives jar
+    archives javadocJar
+    archives sourcesJar
+}
+
+signing {
+    sign configurations.archives
+}
+
+createReleaseTag.dependsOn uploadArchives
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment)}
+            configuration = configurations.deployerJar
+            repository(url: "https://api.bintray.com/maven/uniconlabs/maven/ssl-utils") {
+                authentication(userName: bintrayUsername, password: bintrayAPIKey)
+            }
+            snapshotRepository(url: "git:snapshots://git@bitbucket.org:scalding/maven-repo.git") {
+                authentication(userName: githubUsername, password: githubPassword)
+            }
+            pom.project {
+                name "Unicon SSL Utils"
+                packaging "jar"
+                description "Some utilities to make it easier to work with SSL"
+                url "https://github.com/UniconLabs/ssl-utils"
+
+                scm {
+                    url "scm:git@github.com:UniconLabs/ssl-utils.git"
+                    connection "scm:git@github.com:UniconLabs/ssl-utils.git"
+                    developerConnection "scm:git@github.com:UniconLabs/ssl-utils.git"
+                }
+
+                licenses {
+                    license {
+                        name 'The Apache Software License, Version 2.0'
+                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        distribution 'repo'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id 'scalding'
+                        name 'Jonathan Johnson'
+                    }
+                }
+            }
+        }
+    }
 }
 
 task wrapper(type: Wrapper) {
